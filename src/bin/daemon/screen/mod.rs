@@ -1,4 +1,5 @@
 use log::{debug, error, info};
+use procfs;
 use std::env;
 
 // Modules for backend-specific implementations
@@ -24,6 +25,18 @@ struct ModeInfo {
 /// # Returns
 /// A static string indicating the detected backend: "Wayland" or "KMS/DRM".
 fn detect_backend() -> &'static str {
+    if let Ok(processes) = procfs::process::all_processes() {
+        for p in processes {
+            if let Ok(process) = p {
+                if let Ok(stat) = process.stat() {
+                    if stat.comm == "sway" {
+                        info!("Detected Sway backend.");
+                        return "Wayland";
+                    }
+                }
+            }
+        }
+    }
     if env::var("WAYLAND_DISPLAY").is_ok() {
         info!("Detected Wayland backend.");
         return "Wayland";

@@ -11,6 +11,7 @@ keywords = ["display", "resolution", "drm", "sway", "wayland"]
 categories = ["command-line-utilities"]
 
 [dependencies]
+procfs = "0.18"
 async-std = "1.13"
 log = "0.4"
 simplelog = "0.12"
