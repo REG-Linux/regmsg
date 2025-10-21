@@ -1,9 +1,7 @@
 #![cfg(feature = "cli")]
 
 use clap::{Parser, Subcommand};
-use simplelog::{CombinedLogger, Config, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::fmt;
-use std::fs::OpenOptions;
 
 use zeromq::ReqSocket; // or DealerSocket, RouterSocket, etc.
 use zeromq::ZmqMessage;
@@ -11,7 +9,6 @@ use zeromq::prelude::*; // traits
 
 // Constants for paths and configuration
 const DAEMON_SOCKET_PATH: &str = "ipc:///var/run/regmsgd.sock";
-const LOG_FILE_PATH: &str = "/var/log/regmsg.log";
 
 /// Custom error type for CLI operations
 #[derive(Debug)]
@@ -64,12 +61,8 @@ impl From<log::SetLoggerError> for CliError {
 #[command(author, version, about)]
 struct Cli {
     /// Target screen identifier (optional)
-    #[arg(short, long)]
+    #[arg(short = 's', long)]
     screen: Option<String>,
-
-    /// Enable terminal logging
-    #[arg(short, long)]
-    log: bool,
 
     /// Subcommand to execute
     #[command(subcommand)]
@@ -119,55 +112,6 @@ enum Commands {
     MinToMaxResolution,
 }
 
-/// Configure file and terminal logging
-///
-/// # Arguments
-/// * `enable_terminal` - If true, enables terminal logging in addition to file logging
-///
-/// # Returns
-/// * `Ok(())` - If logging was initialized successfully
-/// * `Err(CliError)` - If an error occurred during initialization
-fn init_logging(enable_terminal: bool) -> Result<(), CliError> {
-    let mut loggers: Vec<Box<dyn simplelog::SharedLogger>> = vec![create_file_logger()?];
-
-    if enable_terminal {
-        loggers.push(create_terminal_logger());
-    }
-
-    CombinedLogger::init(loggers).map_err(CliError::LogError)
-}
-
-/// Creates a file logger
-///
-/// # Returns
-/// * `Ok(Box<dyn simplelog::SharedLogger>)` - A file logger ready to be used
-/// * `Err(CliError)` - If an error occurred while opening the file
-fn create_file_logger() -> Result<Box<dyn simplelog::SharedLogger>, CliError> {
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(LOG_FILE_PATH)?;
-
-    Ok(WriteLogger::new(
-        LevelFilter::Debug,
-        Config::default(),
-        file,
-    ))
-}
-
-/// Creates a terminal logger
-///
-/// # Returns
-/// * `Box<dyn simplelog::SharedLogger>` - A terminal logger ready to be used
-fn create_terminal_logger() -> Box<dyn simplelog::SharedLogger> {
-    TermLogger::new(
-        LevelFilter::Info,
-        Config::default(),
-        TerminalMode::Mixed,
-        simplelog::ColorChoice::Auto,
-    )
-}
-
 /// Main entry point of the CLI application
 ///
 /// Parses command line arguments, initializes logging,
@@ -180,11 +124,7 @@ fn create_terminal_logger() -> Box<dyn simplelog::SharedLogger> {
 async fn main() -> Result<(), CliError> {
     let cli = Cli::parse();
 
-    // Init logging
-    init_logging(cli.log)?;
-
     // Connect to daemon via ZeroMQ
-    //let ctx = zmq::Context::new();
     let mut socket = ReqSocket::new();
     let _ = socket.connect(DAEMON_SOCKET_PATH).await;
 
